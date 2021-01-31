@@ -3,6 +3,8 @@ export enum CalcXYOperations {
   MINUS = "-",
   MULTIPLY = "*",
   DIVIDE = "/",
+  OPEN_PARENTHESIS = "(",
+  CLOSING_PARENTHESIS = ")",
 }
 
 export enum CalcXOperations {
@@ -10,4 +12,4 @@ export enum CalcXOperations {
   INVERT = "+-",
 }
 
-export type CalcHistoryT = (string | CalcXYOperations)[];
+export type CalcOperations = CalcXOperations | CalcXYOperations;
