@@ -68,33 +68,33 @@ class Calculate {
     }
   }
 
-  updateXY(value: string) {
+  updateXY(symbol: string) {
     const lastItem = this.getItem(-1);
 
     let newValue: string | undefined;
 
-    if (value === SpecNumbers.PI) {
+    if (symbol === SpecNumbers.PI) {
       newValue = String(Math.PI);
-    } else if (value === SpecNumbers.E) {
+    } else if (symbol === SpecNumbers.E) {
       newValue = String(Math.E);
     }
 
     if (isNaN(toNumber(lastItem)) || isUndefined(lastItem)) {
       newValue =
         newValue ??
-        (!Object.values<string>(SpecSymbols).includes(value)
-          ? value
-          : `0${value}`);
+        (!Object.values<string>(SpecSymbols).includes(symbol)
+          ? symbol
+          : `0${symbol}`);
 
       this.setItem(newValue);
     } else {
       newValue =
         newValue ??
-        (Object.values<string>(SpecSymbols).some((item) =>
-          (lastItem as string).includes(item)
+        (Object.values<string>(SpecSymbols).some(
+          (item) => symbol === item && (lastItem as string).includes(item)
         )
           ? (lastItem as string)
-          : `${lastItem}${value}`);
+          : `${lastItem}${symbol}`);
 
       this.setItem(newValue, -1);
     }
