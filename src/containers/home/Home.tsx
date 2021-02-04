@@ -1,179 +1,53 @@
-import { isNumber } from "lodash";
 import React, { MouseEvent, useCallback, useRef, useState, VFC } from "react";
 import "styled-components/macro";
-import { CalcOperations, CalcXYOperations, CalcXOperations } from "types/home";
-
-type XY = number | Calculate;
-
-class Calculate {
-  private _firstParent: Calculate;
-
-  private _parent?: Calculate;
-
-  current?: Calculate;
-
-  operator?: CalcOperations;
-
-  x?: XY;
-
-  y?: XY;
-
-  constructor(parent?: Calculate, operator?: CalcOperations, x?: XY) {
-    this.operator = operator;
-    this.x = x;
-    this._parent = parent;
-    this._firstParent = parent?._firstParent || this;
-    this._firstParent._setCurrent(this);
-  }
-
-  private _setCurrent(current: Calculate) {
-    this._firstParent.current = current;
-  }
-
-  setOperator(operator: CalcOperations) {
-    if (operator === CalcXYOperations.OPEN_PARENTHESIS) {
-      const value = this._openParenthesis();
-      if (this.y === undefined) {
-        this.x = value;
-      } else {
-        this.y = value;
-      }
-    } else if (operator === CalcXYOperations.CLOSING_PARENTHESIS) {
-      this._closeParenthesis();
-    } else if (this.y === undefined) {
-      if (Object.values<CalcOperations>(CalcXOperations).includes(operator)) {
-        const value = this._openParenthesis(operator, this.x!);
-        if (this.operator) {
-          this.y = value;
-        } else {
-          this.x = value;
-        }
-        value._closeParenthesis();
-      } else {
-        this.operator = operator;
-      }
-    } else {
-      const self = this._closeParenthesis() || this;
-      self.y = self._openParenthesis(operator, self.y!);
-    }
-    console.log(this._firstParent);
-  }
-
-  setXY(value: string) {
-    if (this.operator) {
-      return (this.y = +`${this.y ?? ""}${value}`);
-    } else {
-      return (this.x = +`${this.x ?? ""}${value}`);
-    }
-  }
-
-  private _getXY() {
-    const { x, y } = this;
-
-    console.log(x, y);
-
-    const _x = isNumber(x) ? x : x?.calculate() ?? 0;
-
-    const _y = isNumber(y) ? y : y?.calculate(_x) ?? _x;
-
-    return { x: _x, y: _y };
-  }
-
-  calculate(prevX?: number): number {
-    const { x, y } = this._getXY();
-
-    console.log(this.operator, x, y);
-
-    switch (this.operator) {
-      case CalcXYOperations.DIVIDE:
-        return x / y;
-      case CalcXYOperations.MINUS:
-        return x - y;
-      case CalcXYOperations.PLUS:
-        return x + y;
-      case CalcXYOperations.MULTIPLY:
-        return x * y;
-      case CalcXOperations.INVERT:
-        return -x;
-      case CalcXOperations.PERCENT:
-        return this._parent?.operator === CalcXYOperations.MINUS ||
-          this._parent?.operator === CalcXYOperations.PLUS
-          ? (x * (prevX ?? x)) / 100
-          : x / 100;
-      default:
-        return x;
-    }
-  }
-
-  private _openParenthesis(operator?: CalcOperations, x?: XY) {
-    return new Calculate(this, operator, x);
-  }
-
-  private _closeParenthesis() {
-    if (this._parent) this._firstParent._setCurrent(this._parent);
-    return this._parent;
-  }
-
-  clear() {
-    this._firstParent._setCurrent(this._firstParent);
-    delete this.x;
-    delete this.y;
-    delete this.operator;
-  }
-}
+import {
+  CalcXYOperations,
+  CalcXOperations,
+  CalcParenthesis,
+  CalcOperations,
+  SpecSymbols,
+  SpecNumbers,
+} from "types/home";
+import Calculate from "utils/calculate";
 
 const Home: VFC = () => {
   const historyRef = useRef(new Calculate());
 
-  const [res, setRes] = useState(0);
+  const [res, setRes] = useState<string>("");
 
   const handleEqual = useCallback(
-    () => setRes(historyRef.current.calculate()),
+    () => setRes(String(Calculate.calculate(historyRef.current.items))),
     []
   );
 
-  const handleNumber = useCallback((e: MouseEvent<HTMLButtonElement>) => {
-    const { name } = e.currentTarget;
-
-    const history = historyRef.current.current!;
-
-    setRes(history.setXY(name));
-  }, []);
+  const handleNumber = useCallback(
+    (e: MouseEvent<HTMLButtonElement>) =>
+      setRes(historyRef.current.updateXY(e.currentTarget.name)),
+    []
+  );
 
   const handleOperation = useCallback(
     (e: MouseEvent<HTMLButtonElement & { name: CalcOperations }>) => {
-      const history = historyRef.current.current!;
-
-      setRes(history.calculate());
+      const history = historyRef.current;
 
       history.setOperator(e.currentTarget.name);
+
+      setRes(String(Calculate.calculate(history.items, true)));
     },
     []
   );
 
   const handleClear = useCallback(() => {
     historyRef.current.clear();
-    setRes(0);
+    setRes("");
   }, []);
 
   return (
     <>
-      <div>{String(res)}</div>
+      <div>{String(res) || 0}</div>
       <div>
-        <button
-          name={CalcXYOperations.OPEN_PARENTHESIS}
-          onClick={handleOperation}
-        >
-          (
-        </button>
-        <button
-          name={CalcXYOperations.CLOSING_PARENTHESIS}
-          onClick={handleOperation}
-        >
-          )
-        </button>
         <button onClick={handleClear}>AC</button>
-        <button name={CalcXOperations.INVERT} onClick={handleOperation}>
+        <button name={CalcXOperations.UNARY_NEGATIVE} onClick={handleOperation}>
           +-
         </button>
         <button name={CalcXOperations.PERCENT} onClick={handleOperation}>
@@ -225,12 +99,107 @@ const Home: VFC = () => {
         <button name="0" onClick={handleNumber}>
           0
         </button>
-        <button name="." onClick={handleNumber}>
+        <button name={SpecSymbols.DOT} onClick={handleNumber}>
           .
+        </button>
+        <button name={SpecSymbols.EE} onClick={handleNumber}>
+          EE
         </button>
         <button name="=" onClick={handleEqual}>
           =
         </button>
+        <br />
+        <button name={SpecNumbers.PI} onClick={handleNumber}>
+          Pi
+        </button>
+        <button name={SpecNumbers.E} onClick={handleNumber}>
+          e
+        </button>
+        <br />
+        <button name={CalcParenthesis.OPEN} onClick={handleOperation}>
+          (
+        </button>
+        <button name={CalcParenthesis.CLOSING} onClick={handleOperation}>
+          )
+        </button>
+        <br />
+        <button name={CalcXOperations.POW2} onClick={handleOperation}>
+          x^2
+        </button>
+        <button name={CalcXOperations.POW3} onClick={handleOperation}>
+          x^3
+        </button>
+        <button name={CalcXOperations.SQRT} onClick={handleOperation}>
+          sqrt(x)
+        </button>
+        <button name={CalcXOperations.CBRT} onClick={handleOperation}>
+          cbrt(x)
+        </button>
+        <button name={CalcXOperations.LN} onClick={handleOperation}>
+          ln
+        </button>
+        <button name={CalcXOperations.LOG2} onClick={handleOperation}>
+          log2
+        </button>
+        <button name={CalcXOperations.LOG10} onClick={handleOperation}>
+          log10
+        </button>
+        <button name={CalcXOperations.SIN} onClick={handleOperation}>
+          sin(x)
+        </button>
+        <button name={CalcXOperations.COS} onClick={handleOperation}>
+          cos(x)
+        </button>
+        <button name={CalcXOperations.TAN} onClick={handleOperation}>
+          tan(x)
+        </button>
+        <button name={CalcXOperations.SINH} onClick={handleOperation}>
+          sinh(x)
+        </button>
+        <button name={CalcXOperations.COSH} onClick={handleOperation}>
+          cosh(x)
+        </button>
+        <button name={CalcXOperations.TANH} onClick={handleOperation}>
+          tanh(x)
+        </button>
+        <button name={CalcXOperations.INVERT_SIN} onClick={handleOperation}>
+          1/sin(x)
+        </button>
+        <button name={CalcXOperations.INVERT_COS} onClick={handleOperation}>
+          1/cos(x)
+        </button>
+        <button name={CalcXOperations.INVERT_TAN} onClick={handleOperation}>
+          1/tan(x)
+        </button>
+        <button name={CalcXOperations.INVERT_SINH} onClick={handleOperation}>
+          1/sinh(x)
+        </button>
+        <button name={CalcXOperations.INVERT_COSH} onClick={handleOperation}>
+          1/cosh(x)
+        </button>
+        <button name={CalcXOperations.INVERT_TANH} onClick={handleOperation}>
+          1/tanh(x)
+        </button>
+        <button name={CalcXOperations.FACTORIAL} onClick={handleOperation}>
+          x!
+        </button>
+        <br />
+        <button name={CalcXYOperations.POW} onClick={handleOperation}>
+          x^y
+        </button>
+        <button name={CalcXYOperations.Y_POW} onClick={handleOperation}>
+          y^x
+        </button>
+        <button name={CalcXYOperations.POW} onClick={handleOperation}>
+          x^y
+        </button>
+        <button name={CalcXYOperations.ROOT} onClick={handleOperation}>
+          y&#8730;x
+        </button>
+        <button name={CalcXYOperations.LOG} onClick={handleOperation}>
+          logy(x)
+        </button>
+        <br />
       </div>
     </>
   );
